@@ -30,6 +30,8 @@ class SimpleFloatGene:
             if random.random() < m_rate:
                 self.bits ^= 1 << bit
 
+increase number of chromosomes!
+http://www.gene-expression-programming.com/GepBook/Introduction.htm
 class SimpleDNA:
 
     def __init__(self, genes_in_numbers):
@@ -137,3 +139,33 @@ plt.ylabel('Average 0..%d' % genes_n)
 plt.show()
 plt.imshow(np.transpose([[g.get_number() for g in org.genes] for org in genAlg.plot_data[0]]), cmap=plt.cm.gray, aspect='auto', interpolation='nearest')
 plt.show()
+
+
+#AIM
+# "1/(1+exp(-(x)))"
+
+there are operators, numbers, 1, input_number.
+crossover at equal substrings.
+insertions...deletions?...
+Insert and delete parenthesis at the same time.
+"(1)/(1+e(-(x)))"
+can only delete parenthesis as a whole?
+
+make sigma neuron a unit in the future and evolve whole cluster to achieve an LStM cell?
+Fitness functions based on the correlation coefficient and R-square are also very smooth. For
+regression problems, these functions work best by combining them with other measures because, by
+themselves, they only tend to measure correlation, not caring for the range of values of the model
+output. So by combining them with functions that work at approximating the range of the target
+values, they form very efficient fitness functions for finding models with good correlation and good
+fit between predicted and actual values.
+
+So by counting the TP, TN, FP, and FN and further assigning different weights to these four types of
+classifications, it is possible to create smoother and therefore more efficient fitness functions.
+Some popular fitness functions based on the confusion matrix include sensitivity/specificity,
+recall/precision, F-measure, Jaccard similarity, Matthews correlation coefficient, and cost/gain
+matrix which combines the costs and gains assigned to the 4 different types of classifications.
+
+stochastic Acceptence! https://en.wikipedia.org/wiki/Fitness_proportionate_selection
+http://www.gene-expression-programming.com/GepBook/Introduction.htm
+http://www.gene-expression-programming.com/GepBook/Introduction.htm
+http://www.gene-expression-programming.com/GepBook/Introduction.htm
