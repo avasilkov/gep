@@ -23,41 +23,44 @@ def roulette_wheel(weights, max_weight):
         limit -= 1
     return index
 
-weights = [0.4, 0.3, 1.2, 0.1]
-max_weight = max(weights)
-import collections
-d = collections.defaultdict(int)
-for i in range(1000):
-    d[roulette_wheel(weights, max_weight)] += 1
-print(d)
-
-
-s = "Q*+-abcd"
-ops = {"*":("%s*%s", 2),"-":("%s-%s", 2),"+":("%s+%s", 2),"/":("%s/%s", 2), "Q":("%s**0.5", 1)}
-
 class Node:
 
-    def __init__(self, operator, ops):
-        self.op_s, self.operands_number = ops[operator]
-        self.operands = []
+    def __init__(self, code, abc):
+        """ code is only needed for graphical repr right now.
+        I don't think it's too much overhead to store it here"""
+        self.f, self.args_number = abc[code]
+        self.code = code
 
     def to_string(self):
         pass
         #return to_string(self.children) + [child.to_string() for child in children]
 
+    def __repr__(self):
+        return self.code
 
-added_operators = 0
-tree = []
-if s[0] in ops:
-    tree = ;
-row_terminated = False
-filled_operators = 0
-prev_row_st = 0
-prev_row_end = 0
-for c in s:
-    if c in ops:
-        tree.append(Node(c))
-    if filled_operators == 0:
-        break
+def parse_gene_into_tree(chrom, abc):
+    layers = []
+    layers.append([Node(chrom[0], abc)])
+    if layers[0][0].args_number == 0:
+        return layers
+    current_layer_size = layers[0][0].args_number
+    pos = 1#len of a chromosome can't be one because then it's just a terminal
+    #and zero element is not terminal either.
+    #head and tail boundaries are preserved so any chromosome is a valid expression terminated at the
+    #end
+    while current_layer_size > 0:
+        next_layer = []
+        next_layer_size = 0
+        for i in range(current_layer_size):
+            next_layer.append(Node(chrom[pos], abc))
+            next_layer_size += next_layer[-1].args_number
+            pos += 1
+        layers.append(next_layer)
+        current_layer_size = next_layer_size
+
+    return layers
+
+def get_code_and_args_n_from_layers(layers):
+    return [[(n.code, n.args_number) for n in l] for l in layers]
 
 
