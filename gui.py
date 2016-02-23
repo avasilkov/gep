@@ -11,6 +11,8 @@ import copy
 from numpy.linalg import norm
 import test_GEP as tgep
 import _GEP as gep
+import graphviz as gv
+import cairo
 
 SIZE = 20
 WIN_SIZE = 800, 600
@@ -44,17 +46,22 @@ def draw_exp_tree(ctx, scr_size, layers, x_spacing, y_spacing):
     curr_pos = [0, h_spacing*0.5]
     layers_pos = []
     text_h = circle_rad
-    for l in layers:
+    g = gv.Digraph(format="png")
+    g.body.append('bgcolor=transparent')
+    g.body.append('size="' + str(scr_size[0]/100) + ',' + str(scr_size[1]/100) + '!"')
+    """
+    for q1, l in enumerate(layers):
         w_spacing = scr_size[0]/len(l)
         curr_pos[0] = w_spacing*0.5
         pos_layer = []
-        for node in l:
+        for q2, node in enumerate(l):
             ctx.set_line_width(2)
             ctx.set_source_rgb(0, 0, 0)
             ctx.move_to(*curr_pos)
             ctx.new_sub_path()
             ctx.arc(curr_pos[0], curr_pos[1], circle_rad, 0, PI2)
             pos_layer.append((curr_pos[0], curr_pos[1], node[1]))
+            g.node(str(q1) + "_" + str(q2), node[0])
             ctx.stroke()
             draw_centered_text(ctx, curr_pos, node[0], text_h)
             curr_pos[0] += w_spacing
@@ -63,16 +70,36 @@ def draw_exp_tree(ctx, scr_size, layers, x_spacing, y_spacing):
 
     for i, l in enumerate(layers_pos[:-1]):
         k = 0
-        for node in l:
+        for q1, node in enumerate(l):
             for j in range(node[2]):
                 ctx.set_line_width(2)
                 ctx.set_source_rgb(0, 0, 0)
                 ctx.move_to(node[0], node[1] + circle_rad)
                 ctx.line_to(layers_pos[i + 1][k][0], layers_pos[i + 1][k][1] - circle_rad)
+                g.edge(str(i) + "_" + str(q1), str(i+1) + "_" + str(k))
                 k += 1
                 ctx.stroke()
+    """
+    for q1, l in enumerate(layers):
+        w_spacing = scr_size[0]/len(l)
+        curr_pos[0] = w_spacing*0.5
+        pos_layer = []
+        for q2, node in enumerate(l):
+            pos_layer.append((curr_pos[0], curr_pos[1], node[1]))
+            g.node(str(q1) + "_" + str(q2), node[0])
+            curr_pos[0] += w_spacing
+        layers_pos.append(pos_layer)
+        curr_pos[1] += h_spacing
 
+    for i, l in enumerate(layers_pos[:-1]):
+        k = 0
+        for q1, node in enumerate(l):
+            for j in range(node[2]):
+                g.edge(str(i) + "_" + str(q1), str(i+1) + "_" + str(k))
+                k += 1
 
+    g.render("graph")
+    return "graph.png"
 
 
 
@@ -128,7 +155,9 @@ class Win(Gtk.Window):
         gene = "Q*+*a*Qaaba"
         layers_to_draw = gep.get_code_and_args_n_from_layers(gep.parse_gene_into_tree(gene,
             tgep.get_abc()))
-        draw_exp_tree(ctx, self.size, layers_to_draw, 20, 20)
+        self.ims = cairo.ImageSurface.create_from_png(draw_exp_tree(ctx, self.size, layers_to_draw, 20, 20))
+        ctx.set_source_surface(self.ims, 10, 10)
+        ctx.paint()
         """global qqq, bbb
         ctx.save()
         ctx.scale(1, -1)
