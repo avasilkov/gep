@@ -1,4 +1,5 @@
 import random
+import copy
 
 def compute_tail_length(head_len, max_args_number):
     """ computes tail size """
@@ -112,17 +113,17 @@ class Chromosome:
     def __init__(self, gene_obj, gene_number, abc, random_init=True):
         self.gene_obj = gene_obj
         self.gene_number = gene_number
-        self.dna = ''
+        self.dna = []
         if random_init:
             self.set_random_dna(abc)
 
     def set_random_dna(self, abc):
-        dna = ''
+        dna = []
         for g_n in range(self.gene_number):
             for i in range(self.gene_obj.head_len):
-                dna += random.choice(abc.funs_and_terms_lst)
+                dna.append(random.choice(abc.funs_and_terms_lst))
             for i in range(self.gene_obj.tail_len):
-                dna += random.choice(abc.terminals_lst)
+                dna.append(random.choice(abc.terminals_lst))
         self.dna = dna
 
     def __repr__(self):
@@ -133,9 +134,86 @@ class Chromosome:
             s += ' '
         s += '\n'
         for i in range(self.gene_number):
-            s += self.dna[i*self.gene_obj.gene_len:(i + 1)*self.gene_obj.gene_len] + ' '
+            s += ''.join(self.dna[i*self.gene_obj.gene_len:(i + 1)*self.gene_obj.gene_len]) + ' '
 
         return s
+
+    def copy(self):
+        return copy.deepcopy(self)
+
+    def mutate(self, abc, m_rate):
+        """ TODO calc m_rate based on chromosome size and how many points you want to mutate per
+        mutation.
+        TODO add tail and head separate rates and/or encode m_rate i dna as a number.
+        TODO make different m_rates for mutations that change args_number and drastically change
+        expr tree"""
+        for g_n in range(self.gene_number):
+            offset = g_n*self.gene_obj.gene_len
+            for i in range(self.gene_obj.head_len):
+                if random.random() < m_rate:
+                    self.dna[offset + i] = random.choice(abc.funs_and_terms_lst)
+            offset += self.gene_obj.head_len
+            for i in range(self.gene_obj.tail_len):
+                if random.random() < m_rate:
+                    self.dna[offset + i] = random.choice(abc.terminals_lst)
+
+    def insertionIS(self, max_len):
+        """ 0.1 is suggested m_rate(checking it outside.
+        maybe add random filter that filters less the farther it wants to insert from root"""
+        if self.gene_obj.head_len < 2 or max_len > self.gene_obj.gene_len:#can't insert at root and
+            #max len need to be of reasonable size
+            return
+        size = random.randrange(max_len) + 1
+        pos = random.randrange(self.gene_number)*self.gene_obj.gene_len
+        pos_in_gene = random.randrange(self.gene_obj.head_len - 1) + 1#excluding root
+        transposon_pos = random.randrange(len(self.dna))
+        seq_len = min(size, self.gene_obj.head_len - pos_in_gene)
+        seq = self.dna[transposon_pos:transposon_pos + seq_len]#while its still intact
+        seq_len = len(seq)
+
+        self.dna[pos + pos_in_gene + seq_len:pos + self.gene_obj.head_len] = self.dna[pos + pos_in_gene:pos + self.gene_obj.head_len - seq_len]
+        self.dna[pos + pos_in_gene:pos + pos_in_gene + seq_len] = seq
+        #print(size, pos, pos_in_gene, seq_len, transposon_pos)
+
+    def root_insertionRIS(self, max_len, abc):
+        """ 0.1 is suggested m_rate(checking it outside.
+        maybe add random filter that filters less the farther it wants to insert from root"""
+        if max_len > self.gene_obj.gene_len:
+            #max len need to be of reasonable size
+            return
+        size = random.randrange(max_len) + 1
+        pos = random.randrange(self.gene_number)*self.gene_obj.gene_len
+        pos_in_head = random.randrange(self.gene_obj.head_len)
+        ult_pos = -1
+        for i in range(pos + pos_in_head, pos + self.gene_obj.head_len):
+            if self.dna[i] in abc.functions:
+                ult_pos = i
+                break
+        if ult_pos == -1:
+            return#function not found, do nothing
+        pos_in_head = ult_pos - pos
+        seq_len = min(size, self.gene_obj.gene_len - pos_in_head)
+        seq = self.dna[ult_pos:ult_pos + seq_len]
+        seq_len = len(seq)
+
+        self.dna[pos + seq_len:pos + self.gene_obj.head_len] = self.dna[pos:pos + self.gene_obj.head_len - seq_len]
+        self.dna[pos:pos + seq_len] = seq
+        #print(size, pos, pos_in_gene, seq_len, transposon_pos)
+
+    def gene_transposition(self):
+        if self.gene_number < 2:
+            return
+        gn = random.randrange(self.gene_number - 1) + 1
+        gene = self.dna[gn*self.gene_obj.gene_len:(gn + 1)*self.gene_obj.gene_len]
+        self.dna[self.gene_obj.gene_len:(gn + 1)*self.gene_obj.gene_len] = self.dna[:gn*self.gene_obj.gene_len]
+        self.dna[:self.gene_obj.gene_len] = gene
+
+    def gene_transposition_any_place(self):
+        #TODO ?
+        pass
+
+
+
 
 #TODO speciation by a chromosome tree size!!! see NEAT
 #p8 see important about fitness function in GEP paper
