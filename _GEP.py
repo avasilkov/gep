@@ -12,6 +12,11 @@ def compute_gene_length(head_len, max_args_number):
 #make an additional gene that operates on other genes!
 #gradually increase gene/chromosome size and mayb functions complexity p8
 
+def coin_flip_swap(first, second):
+    if random.random() < 0.5:
+        return second, first
+    return first, second
+
 def roulette_wheel(weights, max_weight):
     """ from https://en.wikipedia.org/wiki/Fitness_proportionate_selection
     chooses an index based on weight values as probabilities"""
@@ -212,8 +217,119 @@ class Chromosome:
         #TODO ?
         pass
 
+    def crossover_pack(self, other, one_p_rate, two_p_rate, one_gene_recomb_rate):
+        """ typically sum of all three rates is 0.7 """
+        if random.random() < one_p_rate:
+            return self.one_point_recombination(other)
+        if random.random() < two_p_rate:
+            return self.two_point_recombination(other)
+        if random.random() < one_gene_recomb_rate:
+            return self.one_gene_recombination(other)
+        return None
+
+    def one_point_recombination(self, other):
+        chro, other = coin_flip_swap(self, other)
+
+        pivot = random.randrange(1, len(self.dna))
+        chro = chro.copy()
+        chro.dna[pivot:] = copy.deepcopy(other.dna[pivot:])
+        return chro
+
+    def two_point_recombination_with_params(self, other, pivot1, pivot2):
+        chro, other = coin_flip_swap(self, other)
+        chro = chro.copy()
+        if random.random() < 0.5:
+            chro.dna[pivot1:pivot2] = copy.deepcopy(other.dna[pivot1:pivot2])
+        else:
+            chro.dna[:pivot1] = copy.deepcopy(other.dna[:pivot1])
+            chro.dna[pivot2:] = copy.deepcopy(other.dna[pivot2:])
+        return chro
+
+    def two_point_recombination(self, other):
+        pivot1 = random.randrange(1, len(self.dna) - 1)
+        pivot2 = random.randrange(pivot1 + 1, len(self.dna))
+        return self.two_point_recombination_with_params(other, pivot1, pivot2)
+
+    def one_gene_recombination(self, other):
+        g = random.randrange(self.gene_number)*self.gene_obj.gene_len
+        return self.two_point_recombination_with_params(other, g, g + self.gene_obj.gene_len)
 
 
 
 #TODO speciation by a chromosome tree size!!! see NEAT
 #p8 see important about fitness function in GEP paper
+
+
+
+
+class MutationRates:
+
+    def __init__(self, simple_m_rate, IS, RIS, gene_transposition,
+                 one_p_recomb, two_p_recomb, one_gene_recomb):
+        self.m_rate = simple_m_rate
+        self.IS = IS
+        self.RIS = RIS
+        self.gene_transposition = gene_transposition
+        self.one_p_reccomb = one_p_recomb
+        self.two_p_reccomb = two_p_recomb
+        self.one_gene_recomb = one_gene_recomb
+
+
+class EvoAlg:
+
+    def __init__(self, orgs, pop_size, selection_alg, fitness_f, iterations, mutation_rates, plotting=False):
+        self.orgs = orgs
+        self.pop_size = pop_size
+        self.fitness_f = fitness_f
+        self.iterations = iterations
+        self.selecetion_alg = selection_alg
+        self.plot_data = [[], []]#best org, avg fitness
+        self.plotting = plotting
+        self.m_rates = mutation_rates
+
+    def choose_best(self):
+        best = []
+        for org in self.orgs:
+            best.append((org, self.fitness_f(org)))
+
+        best.sort(key=lambda x: x[1], reverse=True)
+
+        if self.plotting:
+            self.plot_data[0].append(copy.deepcopy(best[0][0]))
+            self.plot_data[1].append(sum([f[1] for f in best])/len(best))
+
+        return [b[0] for b in best[:int(round(len(best)*self.choose_best_per))]]
+
+    def reproduce(self, first_parents, second_parents):
+        children = []
+        need_more = self.pop_size
+        while need_more > 0:
+            iterate_another_n = min(need_more, len(first_parents))
+            need_more -= iterate_another_n
+            for i in range(iterate_another_n):
+                parent1 = copy.deepcopy(first_parents[i])
+                if random.random() > self.crossover_m_rate:#yes > this sign not < we are testing for false
+                    children.append(parent1)
+                    continue
+                parent2 = copy.deepcopy(random.choice(second_parents))
+                parent1.mutate(self.m_rate)
+                parent2.mutate(self.m_rate)
+                child = parent1.crossover(parent1, parent2)
+                children.append(child)
+
+        self.orgs = children
+
+
+    def iteration(self):
+        best = self.choose_best()
+        self.reproduce(best, self.orgs)
+
+    def run(self):
+        for i in range(self.iterations):
+            self.iteration()
+            print("Iteration ", i)
+            if self.plotting:
+                print("Average: ", self.plot_data[1][-1])
+
+
+

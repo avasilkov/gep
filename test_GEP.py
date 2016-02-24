@@ -1,6 +1,7 @@
-import random
 import _GEP as gep
+import random
 import collections
+import copy
 
 print(gep.compute_tail_length(10, 2) == 11)
 print(gep.compute_gene_length(10, 2) == 21)
@@ -61,3 +62,28 @@ print('------gene transposition------')
 print(chro1)
 chro1.gene_transposition()
 print(chro1)
+print('------recombinations------')
+print(chro1)
+print(chro2)
+print('------res one point recombination------')
+chro1_dna = copy.deepcopy(chro1.dna)
+chro2_dna = copy.deepcopy(chro2.dna)
+chro3 = chro1.one_point_recombination(chro2)
+assert chro1.dna == chro1_dna
+assert chro2.dna == chro2_dna
+print(chro3)
+print('------res two point recombination------')
+chro1_dna = copy.deepcopy(chro1.dna)
+chro2_dna = copy.deepcopy(chro2.dna)
+chro3 = chro1.two_point_recombination(chro2)
+assert chro1.dna == chro1_dna
+assert chro2.dna == chro2_dna
+print(chro3)
+print('------res one gene recombination------')
+chro1_dna = copy.deepcopy(chro1.dna)
+chro2_dna = copy.deepcopy(chro2.dna)
+chro3 = chro1.one_gene_recombination(chro2)
+assert chro1.dna == chro1_dna
+assert chro2.dna == chro2_dna
+print(chro3)
+print(chro1.crossover_pack(chro2, 0.5, 0.5, 0.5))
