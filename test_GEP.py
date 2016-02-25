@@ -2,6 +2,9 @@ import _GEP as gep
 import random
 import collections
 import copy
+from _GEP import Organism
+import matplotlib.pyplot as plt
+import numpy as np
 
 print(gep.compute_tail_length(10, 2) == 11)
 print(gep.compute_gene_length(10, 2) == 21)
@@ -44,46 +47,87 @@ compiled_expr = expr_tree_layers[0][0].compile_expression()
 print(compiled_expr)
 print(eval(compiled_expr, globals(), {'a':1, 'b':2, 'c':4, 'd':2})==((1+2)*(4-2))**0.5)
 gene_obj = gep.GeneObj(10, abc.max_args_number)
-chro1 = gep.Chromosome(gene_obj, 3, abc)
+org1 = gep.Organism(gene_obj, 3, abc)
 print('------mutation------')
-print(chro1)
-chro1.mutate(abc, 0.9)
-print(chro1)
+print(org1)
+org1.mutate(abc, 0.9)
+print(org1)
 print('------insertionIS/RIS max 3------')
-chro2 = chro1.copy()
+org2 = org1.copy()
 for i in range(100):
-    chro2.insertionIS(3)
-    chro2.root_insertionRIS(3, abc)
-    assert len(chro2.dna) == chro2.gene_obj.gene_len*chro2.gene_number, "error in IS insertion"
-print(chro1)
-chro1.root_insertionRIS(3, abc)
-print(chro1)
+    org2.insertionIS(3)
+    org2.root_insertionRIS(3, abc)
+    assert len(org2.dna) == org2.gene_obj.gene_len*org2.gene_number, "error in IS insertion"
+print(org1)
+org1.root_insertionRIS(3, abc)
+print(org1)
 print('------gene transposition------')
-print(chro1)
-chro1.gene_transposition()
-print(chro1)
+print(org1)
+org1.gene_transposition()
+print(org1)
 print('------recombinations------')
-print(chro1)
-print(chro2)
+print(org1)
+print(org2)
 print('------res one point recombination------')
-chro1_dna = copy.deepcopy(chro1.dna)
-chro2_dna = copy.deepcopy(chro2.dna)
-chro3 = chro1.one_point_recombination(chro2)
-assert chro1.dna == chro1_dna
-assert chro2.dna == chro2_dna
-print(chro3)
+org1_dna = copy.deepcopy(org1.dna)
+org2_dna = copy.deepcopy(org2.dna)
+org3 = Organism.one_point_recombination(org1, org2)
+assert org1.dna == org1_dna
+assert org2.dna == org2_dna
+print(org3)
 print('------res two point recombination------')
-chro1_dna = copy.deepcopy(chro1.dna)
-chro2_dna = copy.deepcopy(chro2.dna)
-chro3 = chro1.two_point_recombination(chro2)
-assert chro1.dna == chro1_dna
-assert chro2.dna == chro2_dna
-print(chro3)
+org1_dna = copy.deepcopy(org1.dna)
+org2_dna = copy.deepcopy(org2.dna)
+org3 = Organism.two_point_recombination(org1, org2)
+assert org1.dna == org1_dna
+assert org2.dna == org2_dna
+print(org3)
 print('------res one gene recombination------')
-chro1_dna = copy.deepcopy(chro1.dna)
-chro2_dna = copy.deepcopy(chro2.dna)
-chro3 = chro1.one_gene_recombination(chro2)
-assert chro1.dna == chro1_dna
-assert chro2.dna == chro2_dna
-print(chro3)
-print(chro1.crossover_pack(chro2, 0.5, 0.5, 0.5))
+org1_dna = copy.deepcopy(org1.dna)
+org2_dna = copy.deepcopy(org2.dna)
+org3 = Organism.one_gene_recombination(org1, org2)
+assert org1.dna == org1_dna
+assert org2.dna == org2_dna
+print(org3)
+print(Organism.crossover_pack(org1, org2, 0.5, 0.3))
+m_rates = gep.MutationRates(0.01, 0.1, 0.1, 0.01, 0.4, 0.15, 0.15, 3)
+print(vars(m_rates))
+
+def get_alphabet2():
+    abc = gep.Alphabet()
+
+    abc.add_function("*", "({0})*({1})", 2)
+    abc.add_function("-", "({0})-({1})", 2)
+    abc.add_function("+", "({0})+({1})", 2)
+
+    abc.add_terminal("a", "a")
+    abc.add_terminal("b", "b")
+    abc.add_terminal("c", "c")
+    abc.add_terminal("d", "d")
+
+    abc.finished_adding_elements()
+
+    return abc
+
+abc2 = get_alphabet2()
+
+gene_obj2 = gep.GeneObj(5, abc2.max_args_number)
+pop_size = 20
+orgs = [Organism(gene_obj2, 1, abc2) for _ in range(pop_size)]
+
+def fff(org):
+    expr_tree_layers = gep.parse_gene_into_tree(org.dna, abc2)
+    compiled_expr = expr_tree_layers[0][0].compile_expression()
+    return -abs(eval(compiled_expr, globals(), {'a':1, 'b':2, 'c':4, 'd':2}) - 5)
+import os
+os.system('clear')
+ea = gep.EvoAlg(orgs, pop_size, 0.2, fff, 100, m_rates, abc2, True)
+
+ea.run()
+print(ea.best[-1])
+plot_data = list(zip(*ea.plot_data))
+plt.plot(plot_data[1], 'r')
+plt.plot(plot_data[0], 'g')
+plt.show()
+
+

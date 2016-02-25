@@ -113,7 +113,7 @@ class GeneObj:
         self.tail_len = compute_tail_length(head_len, max_args_number)
         self.gene_len = compute_gene_length(head_len, max_args_number)
 
-class Chromosome:
+class Organism:
 
     def __init__(self, gene_obj, gene_number, abc, random_init=True):
         self.gene_obj = gene_obj
@@ -213,46 +213,52 @@ class Chromosome:
         self.dna[self.gene_obj.gene_len:(gn + 1)*self.gene_obj.gene_len] = self.dna[:gn*self.gene_obj.gene_len]
         self.dna[:self.gene_obj.gene_len] = gene
 
+    @staticmethod
     def gene_transposition_any_place(self):
         #TODO ?
         pass
 
-    def crossover_pack(self, other, one_p_rate, two_p_rate, one_gene_recomb_rate):
+    @staticmethod
+    def crossover_pack(org1, org2, one_p_partition, two_p_partition):
         """ typically sum of all three rates is 0.7 """
-        if random.random() < one_p_rate:
-            return self.one_point_recombination(other)
-        if random.random() < two_p_rate:
-            return self.two_point_recombination(other)
-        if random.random() < one_gene_recomb_rate:
-            return self.one_gene_recombination(other)
-        return None
-
-    def one_point_recombination(self, other):
-        chro, other = coin_flip_swap(self, other)
-
-        pivot = random.randrange(1, len(self.dna))
-        chro = chro.copy()
-        chro.dna[pivot:] = copy.deepcopy(other.dna[pivot:])
-        return chro
-
-    def two_point_recombination_with_params(self, other, pivot1, pivot2):
-        chro, other = coin_flip_swap(self, other)
-        chro = chro.copy()
-        if random.random() < 0.5:
-            chro.dna[pivot1:pivot2] = copy.deepcopy(other.dna[pivot1:pivot2])
+        n = random.random()
+        if n < one_p_partition:
+            return Organism.one_point_recombination(org1, org2)
+        if n < one_p_partition + two_p_partition:
+            return Organism.two_point_recombination(org1, org2)
         else:
-            chro.dna[:pivot1] = copy.deepcopy(other.dna[:pivot1])
-            chro.dna[pivot2:] = copy.deepcopy(other.dna[pivot2:])
-        return chro
+            return Organism.one_gene_recombination(org1, org2)
 
-    def two_point_recombination(self, other):
-        pivot1 = random.randrange(1, len(self.dna) - 1)
-        pivot2 = random.randrange(pivot1 + 1, len(self.dna))
-        return self.two_point_recombination_with_params(other, pivot1, pivot2)
+    @staticmethod
+    def one_point_recombination(org1, org2):
+        org1, org2 = coin_flip_swap(org1, org2)
 
-    def one_gene_recombination(self, other):
-        g = random.randrange(self.gene_number)*self.gene_obj.gene_len
-        return self.two_point_recombination_with_params(other, g, g + self.gene_obj.gene_len)
+        pivot = random.randrange(1, len(org1.dna))
+        org1 = org1.copy()
+        org1.dna[pivot:] = copy.deepcopy(org2.dna[pivot:])
+        return org1
+
+    @staticmethod
+    def two_point_recombination_with_params(org1, org2, pivot1, pivot2):
+        org1, org2 = coin_flip_swap(org1, org2)
+        org1 = org1.copy()
+        if random.random() < 0.5:
+            org1.dna[pivot1:pivot2] = copy.deepcopy(org2.dna[pivot1:pivot2])
+        else:
+            org1.dna[:pivot1] = copy.deepcopy(org2.dna[:pivot1])
+            org1.dna[pivot2:] = copy.deepcopy(org2.dna[pivot2:])
+        return org1
+
+    @staticmethod
+    def two_point_recombination(org1, org2):
+        pivot1 = random.randrange(1, len(org1.dna) - 1)
+        pivot2 = random.randrange(pivot1 + 1, len(org1.dna))
+        return Organism.two_point_recombination_with_params(org1, org2, pivot1, pivot2)
+
+    @staticmethod
+    def one_gene_recombination(org1, org2):
+        g = random.randrange(org1.gene_number)*org1.gene_obj.gene_len
+        return Organism.two_point_recombination_with_params(org1, org2, g, g + org1.gene_obj.gene_len)
 
 
 
@@ -265,71 +271,101 @@ class Chromosome:
 class MutationRates:
 
     def __init__(self, simple_m_rate, IS, RIS, gene_transposition,
-                 one_p_recomb, two_p_recomb, one_gene_recomb):
+                 one_p_recomb, two_p_recomb, one_gene_recomb,
+                 max_transposition_insertion_seq_len):
         self.m_rate = simple_m_rate
+        self.max_transposition_insertion_seq_len = max_transposition_insertion_seq_len
         self.IS = IS
         self.RIS = RIS
         self.gene_transposition = gene_transposition
-        self.one_p_reccomb = one_p_recomb
-        self.two_p_reccomb = two_p_recomb
+        self.one_p_recomb = one_p_recomb
+        self.two_p_recomb = two_p_recomb
         self.one_gene_recomb = one_gene_recomb
+        self.crossover_total = one_p_recomb + two_p_recomb + one_gene_recomb
+        self.one_two_recomb_percents = (self.one_p_recomb/self.crossover_total,
+                                        self.two_p_recomb/self.crossover_total)
 
 
 class EvoAlg:
 
-    def __init__(self, orgs, pop_size, selection_alg, fitness_f, iterations, mutation_rates, plotting=False):
+    def __init__(self, orgs, pop_size, elite_partition, fitness_f, iterations, mutation_rates, abc, plotting=False):
         self.orgs = orgs
         self.pop_size = pop_size
         self.fitness_f = fitness_f
         self.iterations = iterations
-        self.selecetion_alg = selection_alg
-        self.plot_data = [[], []]#best org, avg fitness
+        self.elite_partition = elite_partition
+        self.plot_data = []#best org, avg fitness, max f
         self.plotting = plotting
         self.m_rates = mutation_rates
+        self.abc = abc
+        self.best = []
 
-    def choose_best(self):
-        best = []
-        for org in self.orgs:
-            best.append((org, self.fitness_f(org)))
+    def compute_fitnesses(self):
+        return [(org, self.fitness_f(org)) for org in self.orgs]
 
-        best.sort(key=lambda x: x[1], reverse=True)
+    def get_elite(self, orgs_with_fit):
+        best = sorted(orgs_with_fit, key=lambda x: x[1], reverse=True)
+        return [b[0] for b in best[:int(len(best)*self.elite_partition)]]
 
-        if self.plotting:
-            self.plot_data[0].append(copy.deepcopy(best[0][0]))
-            self.plot_data[1].append(sum([f[1] for f in best])/len(best))
+    def mutate_organism(self, org):
+        """ WARNING MODIFIES ORGANISM  VARIABLE"""
+        org.mutate(self.abc, self.m_rates.m_rate)
+        if random.random() < self.m_rates.IS:
+            org.insertionIS(self.m_rates.max_transposition_insertion_seq_len)
+        if random.random() < self.m_rates.RIS:
+            org.root_insertionRIS(self.m_rates.max_transposition_insertion_seq_len, self.abc)
+        if random.random() < self.m_rates.gene_transposition:
+            org.gene_transposition()
 
-        return [b[0] for b in best[:int(round(len(best)*self.choose_best_per))]]
+        return org
 
-    def reproduce(self, first_parents, second_parents):
-        children = []
-        need_more = self.pop_size
-        while need_more > 0:
-            iterate_another_n = min(need_more, len(first_parents))
-            need_more -= iterate_another_n
-            for i in range(iterate_another_n):
-                parent1 = copy.deepcopy(first_parents[i])
-                if random.random() > self.crossover_m_rate:#yes > this sign not < we are testing for false
-                    children.append(parent1)
-                    continue
-                parent2 = copy.deepcopy(random.choice(second_parents))
-                parent1.mutate(self.m_rate)
-                parent2.mutate(self.m_rate)
-                child = parent1.crossover(parent1, parent2)
-                children.append(child)
+    def sexual_reproduction(self, org1, org2):
+        return self.mutate_organism(Organism.crossover_pack(org1, org2, *self.m_rates.one_two_recomb_percents))
 
-        self.orgs = children
+    def next_gen(self, orgs_with_fit, max_fitness):
+        elite = self.get_elite(orgs_with_fit)
+        orgs, fitnesses = zip(*orgs_with_fit)#inverse order from actual
 
+        next_gen = elite[:]
 
-    def iteration(self):
-        best = self.choose_best()
-        self.reproduce(best, self.orgs)
+        fitnesses = list(fitnesses)
+        f_min = min(fitnesses)
+        for i in range(len(fitnesses)):
+            fitnesses[i] -= f_min - 0.1
+        max_fitness -= f_min - 0.1
+
+        for i in range(self.pop_size - len(next_gen)):
+            if random.random() < self.m_rates.crossover_total:
+                next_gen.append(self.sexual_reproduction(orgs[roulette_wheel(fitnesses, max_fitness)], orgs[roulette_wheel(fitnesses, max_fitness)]))
+            else:
+                next_gen.append(self.mutate_organism(orgs[roulette_wheel(fitnesses, max_fitness)].copy()))#important. copy()
+
+        self.orgs = next_gen
+        return elite[0]
+
 
     def run(self):
         for i in range(self.iterations):
-            self.iteration()
+            orgs_with_fit = self.compute_fitnesses()
+            max_fitness = orgs_with_fit[0][1]
+            avg = 0
+            for o in orgs_with_fit:
+                if o[1] > max_fitness:
+                    max_fitness = o[1]
+                avg += o[1]
+            avg /= len(orgs_with_fit)
+
+            if self.plotting:
+                self.plot_data.append((avg, max_fitness))
+
+
+            best = self.next_gen(orgs_with_fit, max_fitness)
+            self.best.append((best, max_fitness))
+
+
+            print('----------------')
             print("Iteration ", i)
             if self.plotting:
-                print("Average: ", self.plot_data[1][-1])
-
-
+                print("Max: ", self.plot_data[-1][1])
+                print("Average: ", self.plot_data[-1][0])
 
