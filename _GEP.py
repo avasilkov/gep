@@ -115,10 +115,11 @@ class GeneObj:
 
 class Organism:
 
-    def __init__(self, gene_obj, gene_number, abc, random_init=True):
+    def __init__(self, gene_obj, gene_number, abc, linker=None, random_init=True):
         self.gene_obj = gene_obj
         self.gene_number = gene_number
         self.dna = []
+        self.linker = linker
         if random_init:
             self.set_random_dna(abc)
 
@@ -161,6 +162,7 @@ class Organism:
             for i in range(self.gene_obj.tail_len):
                 if random.random() < m_rate:
                     self.dna[offset + i] = random.choice(abc.terminals_lst)
+
 
     def insertionIS(self, max_len):
         """ 0.1 is suggested m_rate(checking it outside.
@@ -222,6 +224,7 @@ class Organism:
     def crossover_pack(org1, org2, one_p_partition, two_p_partition):
         """ typically sum of all three rates is 0.7 """
         n = random.random()
+        org1, org2 = coin_flip_swap(org1, org2)
         if n < one_p_partition:
             return Organism.one_point_recombination(org1, org2)
         if n < one_p_partition + two_p_partition:
@@ -231,8 +234,6 @@ class Organism:
 
     @staticmethod
     def one_point_recombination(org1, org2):
-        org1, org2 = coin_flip_swap(org1, org2)
-
         pivot = random.randrange(1, len(org1.dna))
         org1 = org1.copy()
         org1.dna[pivot:] = copy.deepcopy(org2.dna[pivot:])
@@ -240,7 +241,6 @@ class Organism:
 
     @staticmethod
     def two_point_recombination_with_params(org1, org2, pivot1, pivot2):
-        org1, org2 = coin_flip_swap(org1, org2)
         org1 = org1.copy()
         if random.random() < 0.5:
             org1.dna[pivot1:pivot2] = copy.deepcopy(org2.dna[pivot1:pivot2])
@@ -257,6 +257,8 @@ class Organism:
 
     @staticmethod
     def one_gene_recombination(org1, org2):
+        if org1.gene_number < 2:
+            return
         g = random.randrange(org1.gene_number)*org1.gene_obj.gene_len
         return Organism.two_point_recombination_with_params(org1, org2, g, g + org1.gene_obj.gene_len)
 
