@@ -36,7 +36,7 @@ def get_alphabet():
     abc.finished_adding_elements()
 
     return abc
-
+"""
 abc = get_alphabet()
 gene = "Q*+-abcd"
 expr_tree_layers = gep.parse_gene_into_tree(gene, abc)
@@ -47,7 +47,7 @@ compiled_expr = expr_tree_layers[0][0].compile_expression()
 print(compiled_expr)
 print(eval(compiled_expr, globals(), {'a':1, 'b':2, 'c':4, 'd':2})==((1+2)*(4-2))**0.5)
 gene_obj = gep.GeneObj(10, abc.max_args_number)
-org1 = gep.Organism(gene_obj, 3, abc)
+org1 = gep.Organism(gene_obj, 3, s  asf abc)
 print('------mutation------')
 print(org1)
 org1.mutate(abc, 0.9)
@@ -90,6 +90,7 @@ assert org1.dna == org1_dna
 assert org2.dna == org2_dna
 print(org3)
 print(Organism.crossover_pack(org1, org2, 0.5, 0.3))
+"""
 m_rates = gep.MutationRates(0.01, 0.1, 0.1, 0.01, 0.4, 0.15, 0.15, 3)
 print(vars(m_rates))
 
@@ -99,6 +100,8 @@ def get_alphabet2():
     abc.add_function("*", "({0})*({1})", 2)
     abc.add_function("-", "({0})-({1})", 2)
     abc.add_function("+", "({0})+({1})", 2)
+    #abc.add_function("Q", "({0})**0.5", 1)
+    #TODO if square root check that number is positive!!! TODO
 
     abc.add_terminal("a", "a")
     abc.add_terminal("b", "b")
@@ -111,17 +114,49 @@ def get_alphabet2():
 
 abc2 = get_alphabet2()
 
-gene_obj2 = gep.GeneObj(5, abc2.max_args_number)
+head_size = 6
+gene_obj2 = gep.GeneObj(head_size, abc2.max_args_number)
 pop_size = 20
-orgs = [Organism(gene_obj2, 1, abc2) for _ in range(pop_size)]
+gene_number = 2
 
+linker_abc = gep.Alphabet()
+linker_abc.add_function("+", "({0})+({1})", 2)
+linker_abc.add_function("-", "({0})-({1})", 2)
+linker_abc.add_function("*", "({0})*({1})", 2)
+for i in range(gene_number):
+    linker_abc.add_terminal('g{0}'.format(i), 'g{0}'.format(i))
+linker_abc.finished_adding_elements()
+
+linker_m_rates = gep.LinkerMutationRates(0.01, 0.1, 0.1, 0.4, 0.15, 3)
+linker_gene_obj = gep.GeneObj(gene_number*2, linker_abc.max_args_number)
+#linker = Organism(linker_gene_obj, 1, linker_abc)
+
+#linker.mutable = True
+
+orgs = [Organism(gene_obj2, gene_number, abc2, gep.LinkerOrg(linker_gene_obj, linker_abc)) for _ in range(pop_size)]
+
+"""
 def fff(org):
     expr_tree_layers = gep.parse_gene_into_tree(org.dna, abc2)
     compiled_expr = expr_tree_layers[0][0].compile_expression()
     return -abs(eval(compiled_expr, globals(), {'a':1, 'b':2, 'c':4, 'd':2}) - 5)
+"""
+def fff(org, abc, linker_abc):
+    return -abs(gep.compute_organism(org, abc, linker_abc, {'a':1, 'b':2, 'c':4, 'd':2}) - 35)
+"""
+o = orgs[0]
+o.dna = []
+o.dna += 'Q*Q+bbaaa*-babaabb'
+o.linker.dna[0] = '+'
+o.linker.dna[1] = 'g0'
+o.linker.dna[2] = 'g1'
+print(o)
+gep.compute_organism(o, abc2, linker_abc, {'a':1, 'b':2, 'c':4, 'd':2})
+"""
+
 import os
 os.system('clear')
-ea = gep.EvoAlg(orgs, pop_size, 0.2, fff, 100, m_rates, abc2, True)
+ea = gep.EvoAlg(orgs, pop_size, 0.2, fff, 100, m_rates, abc2, linker_m_rates, linker_abc, True)
 
 ea.run()
 print(ea.best[-1])
@@ -129,5 +164,4 @@ plot_data = list(zip(*ea.plot_data))
 plt.plot(plot_data[1], 'r')
 plt.plot(plot_data[0], 'g')
 plt.show()
-
 

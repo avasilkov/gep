@@ -69,6 +69,28 @@ def parse_gene_into_tree(gene, abc):
 
     return layers
 
+def get_compiled_string_from_gene(gene, abc):
+    expr_tree_layers = parse_gene_into_tree(gene, abc)
+    return expr_tree_layers[0][0].compile_expression()
+
+def compute_organism(org, abc, linker_abc, local_vars):
+    #TODO if square root check that number is positive!!! TODO
+    computed_gene_values = {}
+    g_len = org.gene_obj.gene_len
+    for i in range(org.gene_number):
+        compiled_s = get_compiled_string_from_gene(org.dna[i*g_len : (i + 1)*g_len], abc)
+        #print(compiled_s)
+        computed_gene_values['g{0}'.format(i)] = eval(compiled_s, globals(), local_vars)
+
+    compiled_linker = get_compiled_string_from_gene(org.linker.dna, linker_abc)
+    #print(compiled_linker)
+    return eval(compiled_linker, globals(), computed_gene_values)
+
+
+
+
+
+
 def get_code_and_args_n_from_layers(layers):
     return [[(n.code, n.args_number) for n in l] for l in layers]
 
@@ -113,15 +135,20 @@ class GeneObj:
         self.tail_len = compute_tail_length(head_len, max_args_number)
         self.gene_len = compute_gene_length(head_len, max_args_number)
 
+
+
 class Organism:
 
-    def __init__(self, gene_obj, gene_number, abc, linker=None, random_init=True):
+    def __init__(self, gene_obj, gene_number, abc, linker, init_dna=None):
         self.gene_obj = gene_obj
         self.gene_number = gene_number
         self.dna = []
+        #linker can have 1 arity operations so it's still valid even for 1 gene chromosomes
         self.linker = linker
-        if random_init:
+        if init_dna is None:
             self.set_random_dna(abc)
+        else:
+            self.dna = init_dna
 
     def set_random_dna(self, abc):
         dna = []
@@ -141,6 +168,8 @@ class Organism:
         s += '\n'
         for i in range(self.gene_number):
             s += ''.join(self.dna[i*self.gene_obj.gene_len:(i + 1)*self.gene_obj.gene_len]) + ' '
+
+        s += '\n' + ''.join(self.linker.dna)
 
         return s
 
@@ -230,13 +259,19 @@ class Organism:
         if n < one_p_partition + two_p_partition:
             return Organism.two_point_recombination(org1, org2)
         else:
-            return Organism.one_gene_recombination(org1, org2)
+            if org1.gene_number > 1:
+                return Organism.one_gene_recombination(org1, org2)
+            else:
+                return org1#there is coin flip above. nust be in this function!
 
     @staticmethod
     def one_point_recombination(org1, org2):
         pivot = random.randrange(1, len(org1.dna))
         org1 = org1.copy()
-        org1.dna[pivot:] = copy.deepcopy(org2.dna[pivot:])
+        if random.random() < 0.5:
+            org1.dna[pivot:] = copy.deepcopy(org2.dna[pivot:])
+        else:
+            org1.dna[:pivot] = copy.deepcopy(org2.dna[:pivot])
         return org1
 
     @staticmethod
@@ -257,8 +292,6 @@ class Organism:
 
     @staticmethod
     def one_gene_recombination(org1, org2):
-        if org1.gene_number < 2:
-            return
         g = random.randrange(org1.gene_number)*org1.gene_obj.gene_len
         return Organism.two_point_recombination_with_params(org1, org2, g, g + org1.gene_obj.gene_len)
 
@@ -266,6 +299,27 @@ class Organism:
 
 #TODO speciation by a chromosome tree size!!! see NEAT
 #p8 see important about fitness function in GEP paper
+
+class LinkerOrg(Organism):
+
+    def __init__(self, gene_obj, abc, mutable=True, init_dna=None):
+        Organism.__init__(self, gene_obj, 1, abc, None, init_dna)
+        self.mutable = mutable
+
+
+    @staticmethod
+    def crossover_pack(org1, org2, one_p_partition):
+        n = random.random()
+        org1, org2 = coin_flip_swap(org1, org2)
+        if n < one_p_partition:
+            return Organism.one_point_recombination(org1, org2)
+        else:
+            return Organism.two_point_recombination(org1, org2)
+
+
+    def copy(self):
+        return copy.deepcopy(self)
+
 
 
 
@@ -288,9 +342,27 @@ class MutationRates:
                                         self.two_p_recomb/self.crossover_total)
 
 
+class LinkerMutationRates:
+
+    def __init__(self, simple_m_rate, IS, RIS, one_p_recomb, two_p_recomb,
+                 max_transposition_insertion_seq_len):
+        self.m_rate = simple_m_rate
+        self.max_transposition_insertion_seq_len = max_transposition_insertion_seq_len
+        self.IS = IS
+        self.RIS = RIS
+        self.one_p_recomb = one_p_recomb
+        self.two_p_recomb = two_p_recomb
+        self.crossover_total = one_p_recomb + two_p_recomb
+        self.one_recomb_percents = self.one_p_recomb/self.crossover_total
+
+
+
+
 class EvoAlg:
 
-    def __init__(self, orgs, pop_size, elite_partition, fitness_f, iterations, mutation_rates, abc, plotting=False):
+    def __init__(self, orgs, pop_size, elite_partition, fitness_f, iterations, mutation_rates, abc,
+            linker_mutation_rates,
+            linker_abc, plotting=False):
         self.orgs = orgs
         self.pop_size = pop_size
         self.fitness_f = fitness_f
@@ -299,11 +371,13 @@ class EvoAlg:
         self.plot_data = []#best org, avg fitness, max f
         self.plotting = plotting
         self.m_rates = mutation_rates
+        self.linker_m_rates = linker_mutation_rates
         self.abc = abc
+        self.linker_abc = linker_abc
         self.best = []
 
     def compute_fitnesses(self):
-        return [(org, self.fitness_f(org)) for org in self.orgs]
+        return [(org, self.fitness_f(org, self.abc, self.linker_abc)) for org in self.orgs]
 
     def get_elite(self, orgs_with_fit):
         best = sorted(orgs_with_fit, key=lambda x: x[1], reverse=True)
@@ -312,6 +386,7 @@ class EvoAlg:
     def mutate_organism(self, org):
         """ WARNING MODIFIES ORGANISM  VARIABLE"""
         org.mutate(self.abc, self.m_rates.m_rate)
+
         if random.random() < self.m_rates.IS:
             org.insertionIS(self.m_rates.max_transposition_insertion_seq_len)
         if random.random() < self.m_rates.RIS:
@@ -337,16 +412,36 @@ class EvoAlg:
         max_fitness -= f_min - 0.1
 
         for i in range(self.pop_size - len(next_gen)):
+            p1 = roulette_wheel(fitnesses, max_fitness)
+            p2 = roulette_wheel(fitnesses, max_fitness)
             if random.random() < self.m_rates.crossover_total:
-                next_gen.append(self.sexual_reproduction(orgs[roulette_wheel(fitnesses, max_fitness)], orgs[roulette_wheel(fitnesses, max_fitness)]))
+                next_gen.append(self.sexual_reproduction(orgs[p1], orgs[p2]))
             else:
-                next_gen.append(self.mutate_organism(orgs[roulette_wheel(fitnesses, max_fitness)].copy()))#important. copy()
+                next_gen.append(self.mutate_organism(orgs[p1].copy()))#important. copy()
+            if next_gen[-1].linker.mutable:
+                if random.random() < self.linker_m_rates.crossover_total:
+                    next_gen[-1].linker = LinkerOrg.crossover_pack(next_gen[-1].linker, orgs[p2].linker, self.linker_m_rates.one_recomb_percents)
+                    #next_gen[-1].linker = LinkerOrg.crossover_pack(None,None,
+                    #    None)
+                self.mutate_linker_org(next_gen[-1])#without_copy
 
         self.orgs = next_gen
         return elite[0]
 
+    def mutate_linker_org(self, org):
+        """ WARNING MODIFIES ORGANISM  VARIABLE"""
+        org.linker.mutate(self.linker_abc, self.linker_m_rates.m_rate)
+        if random.random() < self.linker_m_rates.IS:
+            org.linker.insertionIS(self.linker_m_rates.max_transposition_insertion_seq_len)
+        if random.random() < self.linker_m_rates.RIS:
+            org.linker.root_insertionRIS(self.linker_m_rates.max_transposition_insertion_seq_len,
+                    self.linker_abc)
+        return org.linker
+
+
 
     def run(self):
+        self.best = []
         for i in range(self.iterations):
             orgs_with_fit = self.compute_fitnesses()
             max_fitness = orgs_with_fit[0][1]
